@@ -187,6 +187,22 @@ input[type="radio"] { margin-right: 10px; accent-color: var(--primary); }
 
 .modal-price { font-size: 1.5rem; color: var(--primary); font-weight: bold; text-align: right; margin-top: 10px; }
 
+/* Configurador de personalización de pizza */
+.customizer-container.hidden { display: none; }
+.customizer-section { margin-top: 18px; border-top: 1px dashed #ddd; padding-top: 15px; }
+.customizer-section h4 { font-size: 1rem; margin-bottom: 8px; color: var(--primary); }
+.customizer-subtitle { font-size: 0.85rem; color: #777; margin: 12px 0 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.extra-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.extra-chip {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid #ddd; border-radius: 20px; padding: 7px 14px;
+    cursor: pointer; font-size: 0.85rem; transition: 0.2s; background: #fff;
+}
+.extra-chip input { accent-color: var(--primary); margin: 0; }
+.extra-chip small { color: #888; }
+.extra-chip:has(input:checked) { background: var(--light); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.extra-chip:has(input:checked) small { color: var(--primary); }
+
 /* Modal Login/Register */
 .login-modal { max-width: 400px; text-align: center; }
 
@@ -222,6 +238,51 @@ input[type="radio"] { margin-right: 10px; accent-color: var(--primary); }
 .cart-item-info h4 { font-size: 1rem; }
 .cart-item-info span { font-size: 0.85rem; color: #666; }
 .cart-item img { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; }
+
+/* Métodos de pago (carrito) */
+.payment-methods { margin-top: 15px; }
+.payment-methods h4 { font-size: 0.95rem; color: var(--dark); margin-bottom: 12px; font-weight: 600; }
+.payment-options { display: flex; gap: 18px; flex-wrap: wrap; }
+.payment-option { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.payment-icon-wrap {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--icon-color, #999); color: var(--white);
+    font-size: 1.2rem;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px #ddd;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.payment-option:hover .payment-icon-wrap { transform: scale(1.05); }
+.payment-option.selected .payment-icon-wrap {
+    box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--icon-color, var(--primary));
+}
+.payment-option .payment-label { font-size: 0.8rem; color: #666; font-weight: 500; }
+.payment-option.selected .payment-label { color: var(--dark); font-weight: 700; }
+
+/* Estado del pedido (seguimiento) */
+.orders-list { max-height: 500px; overflow-y: auto; margin-top: 10px; }
+.order-card { border: 1px solid #eee; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fafafa; }
+.order-card-header { display: flex; justify-content: space-between; font-size: 0.85rem; color: #555; margin-bottom: 14px; }
+.order-card-header strong { color: var(--dark); }
+
+.order-steps { display: flex; align-items: flex-start; margin-bottom: 16px; }
+.order-step { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 76px; text-align: center; flex-shrink: 0; }
+.order-step span { font-size: 0.65rem; color: #999; line-height: 1.1; }
+.order-step-icon {
+    width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; color: #999;
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem; transition: 0.3s;
+}
+.order-step.done .order-step-icon { background: var(--primary); color: #fff; }
+.order-step.done span { color: var(--dark); font-weight: 600; }
+.order-step.current .order-step-icon { box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.2); }
+.order-step-line { flex: 1; height: 2px; background: #e0e0e0; margin: 16px 4px 0; }
+.order-step-line.done { background: var(--primary); }
+
+.order-items { font-size: 0.85rem; color: #555; border-top: 1px dashed #ddd; padding-top: 10px; margin-bottom: 10px; }
+.order-item-line { padding: 3px 0; }
+.order-item-line small { color: #888; }
+.order-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; border-top: 1px solid #eee; padding-top: 10px; }
+.order-status-badge { font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: var(--light); color: var(--primary); }
 
 .cart-summary { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
 .cart-total { font-size: 1.4rem; font-weight: bold; text-align: right; margin-bottom: 15px; color: var(--dark); }

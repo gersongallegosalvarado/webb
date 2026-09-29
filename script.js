@@ -40,10 +40,39 @@ const menuData = {
 
 // --- ESTADO Y LOCAL STORAGE ---
 let cart = JSON.parse(localStorage.getItem('megaPizza_cart')) || [];
+let selectedPaymentMethod = null;
 let currentUser = JSON.parse(localStorage.getItem('megaPizza_user')) || null;
 let registeredUsers = JSON.parse(localStorage.getItem('megaPizza_users')) || [];
 let currentSelection = null;
 let currentAuthMode = 'login'; 
+
+// --- PERSONALIZACIÓN DE PIZZA (CASCOS RELLENOS E INGREDIENTES) ---
+const crustOptions = [
+    { key: 'ninguno', label: 'Borde clásico', price: 0 },
+    { key: 'queso', label: 'Casco relleno de queso', price: 4 },
+    { key: 'ajo', label: 'Casco relleno de ajo y queso', price: 5 }
+];
+
+const extraIngredients = [
+    { key: 'queso_extra', label: 'Extra queso', price: 3 },
+    { key: 'champinones', label: 'Champiñones', price: 2 },
+    { key: 'aceitunas', label: 'Aceitunas', price: 2 },
+    { key: 'jamon', label: 'Jamón', price: 3 },
+    { key: 'tocino', label: 'Tocino', price: 3 },
+    { key: 'cebolla', label: 'Cebolla', price: 1.5 },
+    { key: 'pimiento', label: 'Pimiento', price: 1.5 }
+];
+
+// --- ESTADO DEL PEDIDO (SEGUIMIENTO) ---
+let orders = JSON.parse(localStorage.getItem('megaPizza_orders')) || [];
+let ordersRefreshInterval = null;
+
+const ORDER_STAGES = [
+    { key: 'recibido', label: 'Recibido', icon: 'fa-receipt', minMinutes: 0 },
+    { key: 'preparacion', label: 'En preparación', icon: 'fa-kitchen-set', minMinutes: 1 },
+    { key: 'camino', label: 'En camino', icon: 'fa-motorcycle', minMinutes: 4 },
+    { key: 'entregado', label: 'Entregado', icon: 'fa-circle-check', minMinutes: 9 }
+];
 
 // --- IMÁGENES FALLBACK ---
 const placeholders = {
@@ -178,11 +207,12 @@ function prepareAdd(itemId, categoryKey) {
         return;
     }
 
-    currentSelection = { item: item, option: null, price: 0 }; 
+    currentSelection = { item: item, option: null, basePrice: 0, price: 0, crust: 'ninguno', crustLabel: null, crustPrice: 0, extras: [] };
     
     const modal = document.getElementById('modal-product');
     const title = document.getElementById('modal-title');
     const optionsContainer = document.getElementById('modal-options');
+    const customizerContainer = document.getElementById('modal-customizer');
     const priceDisplay = document.getElementById('modal-display-price');
     const desc = document.getElementById('modal-desc');
 
@@ -192,7 +222,7 @@ function prepareAdd(itemId, categoryKey) {
     if(item.prices) {
         desc.innerText = (item.type === 'pizza' || item.type === 'bebida') ? 'Selecciona el tamaño:' : 'Selecciona la salsa:';
         const keys = Object.keys(item.prices);
-        currentSelection.price = item.prices[keys[0]];
+        currentSelection.basePrice = item.prices[keys[0]];
         currentSelection.option = keys[0];
 
         keys.forEach((key, index) => {
@@ -207,22 +237,86 @@ function prepareAdd(itemId, categoryKey) {
                     <span>S/. ${price.toFixed(2)}</span>
                 </label>`;
         });
-        priceDisplay.innerText = `S/. ${currentSelection.price.toFixed(2)}`;
     } else {
         desc.innerText = '';
-        currentSelection.price = item.price;
+        currentSelection.basePrice = item.price;
         currentSelection.option = 'Único';
-        priceDisplay.innerText = `S/. ${item.price.toFixed(2)}`;
         optionsContainer.innerHTML = '<p style="color:var(--primary); font-weight:bold;">¡Excelente elección!</p>';
     }
+
+    // Configurador de personalización: solo para pizzas
+    if (item.type === 'pizza') {
+        customizerContainer.classList.remove('hidden');
+        customizerContainer.innerHTML = buildCustomizerHTML();
+    } else {
+        customizerContainer.classList.add('hidden');
+        customizerContainer.innerHTML = '';
+    }
+
+    recalcPrice();
     modal.style.display = 'flex';
 }
 
+function buildCustomizerHTML() {
+    let html = `<div class="customizer-section">
+        <h4><i class="fas fa-sliders"></i> Personaliza tu pizza</h4>
+        <p class="customizer-subtitle">Casco relleno</p>
+        <div class="crust-options">`;
+
+    crustOptions.forEach((c, index) => {
+        html += `
+            <label class="radio-option">
+                <span>
+                    <input type="radio" name="crust_opt" value="${c.key}" data-price="${c.price}" data-label="${c.label}" ${index === 0 ? 'checked' : ''} onchange="updateCrust(this)">
+                    ${c.label}
+                </span>
+                <span>${c.price > 0 ? '+S/. ' + c.price.toFixed(2) : 'Gratis'}</span>
+            </label>`;
+    });
+
+    html += `</div>
+        <p class="customizer-subtitle">Ingredientes adicionales</p>
+        <div class="extra-options">`;
+
+    extraIngredients.forEach(e => {
+        html += `
+            <label class="extra-chip">
+                <input type="checkbox" value="${e.key}" data-price="${e.price}" data-label="${e.label}" onchange="toggleExtra(this)">
+                <span>${e.label}</span> <small>+S/. ${e.price.toFixed(2)}</small>
+            </label>`;
+    });
+
+    html += `</div></div>`;
+    return html;
+}
+
 function updateSelection(radio) {
-    const price = parseFloat(radio.dataset.price);
-    currentSelection.price = price;
+    currentSelection.basePrice = parseFloat(radio.dataset.price);
     currentSelection.option = radio.value;
-    document.getElementById('modal-display-price').innerText = `S/. ${price.toFixed(2)}`;
+    recalcPrice();
+}
+
+function updateCrust(radio) {
+    currentSelection.crust = radio.value;
+    currentSelection.crustPrice = parseFloat(radio.dataset.price);
+    currentSelection.crustLabel = radio.value === 'ninguno' ? null : radio.dataset.label;
+    recalcPrice();
+}
+
+function toggleExtra(checkbox) {
+    const key = checkbox.value;
+    if (checkbox.checked) {
+        currentSelection.extras.push({ key: key, label: checkbox.dataset.label, price: parseFloat(checkbox.dataset.price) });
+    } else {
+        currentSelection.extras = currentSelection.extras.filter(e => e.key !== key);
+    }
+    recalcPrice();
+}
+
+function recalcPrice() {
+    const extrasTotal = currentSelection.extras.reduce((sum, e) => sum + e.price, 0);
+    currentSelection.price = currentSelection.basePrice + (currentSelection.crustPrice || 0) + extrasTotal;
+    document.getElementById('modal-display-price').innerText = `S/. ${currentSelection.price.toFixed(2)}`;
 }
 
 function confirmAddToCart() {
@@ -232,6 +326,8 @@ function confirmAddToCart() {
         id: currentSelection.item.id + '-' + Date.now(),
         name: currentSelection.item.name,
         option: currentSelection.option,
+        crust: currentSelection.crustLabel || null,
+        extras: currentSelection.extras.map(e => e.label),
         price: currentSelection.price,
         img: currentSelection.item.img
     };
@@ -271,13 +367,15 @@ function renderCartContent() {
     cart.forEach((item, index) => {
         total += item.price;
         const fallback = placeholders.cart;
+        const crustStr = item.crust ? `<br><small>${item.crust}</small>` : '';
+        const extrasStr = (item.extras && item.extras.length) ? `<br><small>+ ${item.extras.join(', ')}</small>` : '';
         container.innerHTML += `
             <div class="cart-item">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <img src="${item.img}" style="width:50px; height:50px; object-fit:cover; border-radius:5px;" onerror="this.src='${fallback}'">
                     <div class="cart-item-info">
                         <h4>${item.name}</h4>
-                        <span>${item.option}</span>
+                        <span>${item.option}${crustStr}${extrasStr}</span>
                     </div>
                 </div>
                 <div style="text-align:right;">
@@ -301,6 +399,21 @@ function openCartModal() {
     document.getElementById('modal-cart').style.display = 'flex';
 }
 
+function selectPaymentMethod(method) {
+    selectedPaymentMethod = method;
+    document.querySelectorAll('.payment-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.method === method);
+    });
+    document.getElementById('payment-error').classList.add('hidden');
+}
+
+const paymentMethodLabels = {
+    yape: 'Yape',
+    plin: 'Plin',
+    tarjeta: 'Tarjeta',
+    efectivo: 'Efectivo'
+};
+
 function checkout() {
     if (!currentUser) {
         alert("Debes iniciar sesión para finalizar tu pedido.");
@@ -311,13 +424,111 @@ function checkout() {
         alert("Tu carrito está vacío.");
         return;
     }
+    if (!selectedPaymentMethod) {
+        document.getElementById('payment-error').classList.remove('hidden');
+        return;
+    }
     const userName = currentUser ? currentUser.name : 'Cliente';
-    alert(`¡Gracias por tu compra, ${userName}! El total es ${document.getElementById('cart-total-price').innerText}. Tu pedido será procesado.`);
-    
+    const paymentLabel = paymentMethodLabels[selectedPaymentMethod];
+    const newOrder = createOrder();
+    alert(`¡Gracias por tu compra, ${userName}! El total es ${document.getElementById('cart-total-price').innerText}, pagado con ${paymentLabel}. Tu pedido ${newOrder.id} será procesado. Puedes seguir su estado en "Mis Pedidos".`);
+
     cart = [];
     saveCart();
     updateCartUI();
+    selectedPaymentMethod = null;
+    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
     closeModal('modal-cart');
+    openOrdersModal();
+}
+
+// --- LÓGICA DE ESTADO DEL PEDIDO (SEGUIMIENTO) ---
+function saveOrders() {
+    localStorage.setItem('megaPizza_orders', JSON.stringify(orders));
+}
+
+function createOrder() {
+    const order = {
+        id: 'PED-' + Date.now().toString().slice(-6),
+        userEmail: currentUser.email,
+        date: new Date().toISOString(),
+        items: cart.map(i => ({ name: i.name, option: i.option, crust: i.crust, extras: i.extras, price: i.price })),
+        total: cart.reduce((sum, i) => sum + i.price, 0),
+        payment: selectedPaymentMethod
+    };
+    orders.unshift(order);
+    saveOrders();
+    return order;
+}
+
+function getOrderStage(order) {
+    const elapsedMinutes = (Date.now() - new Date(order.date).getTime()) / 60000;
+    let current = ORDER_STAGES[0];
+    for (const stage of ORDER_STAGES) {
+        if (elapsedMinutes >= stage.minMinutes) current = stage;
+    }
+    return current;
+}
+
+function openOrdersModal() {
+    if (!currentUser) {
+        alert("Debes iniciar sesión para ver tus pedidos.");
+        openLoginModal();
+        return;
+    }
+    renderOrders();
+    document.getElementById('modal-orders').style.display = 'flex';
+
+    if (ordersRefreshInterval) clearInterval(ordersRefreshInterval);
+    ordersRefreshInterval = setInterval(renderOrders, 5000);
+}
+
+function renderOrders() {
+    const container = document.getElementById('orders-list-container');
+    if (!currentUser) { container.innerHTML = ''; return; }
+
+    const userOrders = orders.filter(o => o.userEmail === currentUser.email);
+
+    if (userOrders.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:20px; color:#888;">Todavía no tienes pedidos.</p>';
+        return;
+    }
+
+    container.innerHTML = userOrders.map(order => {
+        const stage = getOrderStage(order);
+        const stageIndex = ORDER_STAGES.findIndex(s => s.key === stage.key);
+        const dateStr = new Date(order.date).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+
+        const stepsHtml = ORDER_STAGES.map((s, idx) => {
+            const stepHtml = `
+                <div class="order-step ${idx <= stageIndex ? 'done' : ''} ${idx === stageIndex ? 'current' : ''}">
+                    <div class="order-step-icon"><i class="fas ${s.icon}"></i></div>
+                    <span>${s.label}</span>
+                </div>`;
+            const lineHtml = idx < ORDER_STAGES.length - 1 ? `<div class="order-step-line ${idx < stageIndex ? 'done' : ''}"></div>` : '';
+            return stepHtml + lineHtml;
+        }).join('');
+
+        const itemsHtml = order.items.map(i => {
+            const crustStr = i.crust ? `<br><small>${i.crust}</small>` : '';
+            const extrasStr = (i.extras && i.extras.length) ? `<br><small>+ ${i.extras.join(', ')}</small>` : '';
+            return `<div class="order-item-line">${i.name} (${i.option})${crustStr}${extrasStr} — S/. ${i.price.toFixed(2)}</div>`;
+        }).join('');
+
+        return `
+            <div class="order-card">
+                <div class="order-card-header">
+                    <div><strong>${order.id}</strong><br>${dateStr}</div>
+                    <span class="order-status-badge">${stage.label}</span>
+                </div>
+                <div class="order-steps">${stepsHtml}</div>
+                <div class="order-items">${itemsHtml}</div>
+                <div class="order-footer">
+                    <span>Pago: ${paymentMethodLabels[order.payment] || order.payment}</span>
+                    <strong>Total: S/. ${order.total.toFixed(2)}</strong>
+                </div>
+            </div>`;
+    }).join('');
 }
 
 // --- LÓGICA DE REGISTRO / LOGIN (PERSISTENTE) ---
@@ -411,10 +622,18 @@ function logout() {
 // --- UTILIDADES DE MODALES ---
 function closeModal(id) {
     document.getElementById(id).style.display = 'none';
+    if (id === 'modal-orders' && ordersRefreshInterval) {
+        clearInterval(ordersRefreshInterval);
+        ordersRefreshInterval = null;
+    }
 }
 
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = "none";
+        if (event.target.id === 'modal-orders' && ordersRefreshInterval) {
+            clearInterval(ordersRefreshInterval);
+            ordersRefreshInterval = null;
+        }
     }
 }

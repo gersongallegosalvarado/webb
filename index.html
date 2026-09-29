@@ -47,6 +47,9 @@
             <button class="btn-icon" id="loginBtn" onclick="openLoginModal()">
                 <i class="fas fa-user"></i> <span id="userName" class="user-greeting">Ingresar</span>
             </button>
+            <button class="btn-icon" id="ordersBtn" onclick="openOrdersModal()" title="Mis Pedidos">
+                <i class="fas fa-receipt"></i>
+            </button>
             <button class="btn-icon cart-button" onclick="openCartModal()">
                 <i class="fas fa-shopping-cart"></i>
                 <span id="cart-count">0</span>
@@ -79,6 +82,9 @@
             <p id="modal-desc" class="modal-description">Selecciona tu opción</p>
             
             <div id="modal-options" class="options-container">
+                </div>
+
+            <div id="modal-customizer" class="customizer-container hidden">
                 </div>
 
             <div class="modal-price" id="modal-display-price">S/. 0.00</div>
@@ -119,10 +125,51 @@
             <h2>Tu Carrito <i class="fas fa-shopping-cart"></i></h2>
             <div id="cart-items-container" class="cart-items">
                 </div>
+
+            <div class="payment-methods">
+                <h4>Método de pago</h4>
+                <div class="payment-options" id="payment-options">
+                    <div class="payment-option" data-method="yape" onclick="selectPaymentMethod('yape')">
+                        <div class="payment-icon-wrap" style="--icon-color:#742284;">
+                            <i class="fas fa-mobile-screen-button"></i>
+                        </div>
+                        <span class="payment-label">Yape</span>
+                    </div>
+                    <div class="payment-option" data-method="plin" onclick="selectPaymentMethod('plin')">
+                        <div class="payment-icon-wrap" style="--icon-color:#00b8a9;">
+                            <i class="fas fa-mobile-screen-button"></i>
+                        </div>
+                        <span class="payment-label">Plin</span>
+                    </div>
+                    <div class="payment-option" data-method="tarjeta" onclick="selectPaymentMethod('tarjeta')">
+                        <div class="payment-icon-wrap" style="--icon-color:#1565c0;">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <span class="payment-label">Tarjeta</span>
+                    </div>
+                    <div class="payment-option" data-method="efectivo" onclick="selectPaymentMethod('efectivo')">
+                        <div class="payment-icon-wrap" style="--icon-color:#2ecc71;">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <span class="payment-label">Efectivo</span>
+                    </div>
+                </div>
+                <p id="payment-error" class="error-message hidden">Selecciona un método de pago.</p>
+            </div>
+
             <div class="cart-summary">
                 <div class="cart-total">Total: <span id="cart-total-price">S/. 0.00</span></div>
                 <button class="btn btn-checkout" onclick="checkout()">FINALIZAR PEDIDO</button>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-orders" class="modal">
+        <div class="modal-content cart-modal-content">
+            <span class="close-btn" onclick="closeModal('modal-orders')">&times;</span>
+            <h2>Mis Pedidos <i class="fas fa-receipt"></i></h2>
+            <div id="orders-list-container" class="orders-list">
+                </div>
         </div>
     </div>
 
